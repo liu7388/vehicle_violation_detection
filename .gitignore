@@ -1,1 +1,7 @@
-venv
+venv/
+yolov5/
+./vehicle/videos/
+./vehicle/image.jpg
+./vehicle/runs/
+./vehicle/yolov5m.pt
+./vehicle/yolov5s.pt
