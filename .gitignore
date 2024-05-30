@@ -5,3 +5,5 @@ yolov5/
 ./vehicle/runs/
 ./vehicle/yolov5m.pt
 ./vehicle/yolov5s.pt
+./.idea/
+./sort/
