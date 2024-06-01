@@ -6,7 +6,7 @@ import cv2
 model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
 
 # 讀取圖像
-img = cv2.imread('image.jpg')
+img = cv2.imread('data/image.jpg')
 
 # 進行推論
 results = model(img)

@@ -3,20 +3,20 @@ import json
 import os
 
 video = '20230309_073056-1'
-# video = 'blinkers-1-1'
+# video = 'blinkers-2-1'
 
 
 # 读取视频
-video_path = './videos/train/' + video + '.mp4'
+video_path = './data/videos/train/' + video + '.mp4'
 cap = cv2.VideoCapture(video_path)
 
 # 读取 JSON 文件
-json_path = './videos/train/' + video +'.MOV_detections.json'
+json_path = './data/videos/train/' + video +'.MOV_detections.json'
 with open(json_path, 'r') as f:
     detections = json.load(f)
 
 # 创建输出文件夹
-output_dir = './output/' + video
+output_dir = './data/output_deepsort/' + video
 os.makedirs(output_dir, exist_ok=True)
 
 # 读取视频帧并裁剪标记框部分

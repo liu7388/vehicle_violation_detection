@@ -1,27 +1,24 @@
-import os
-
 import torch
 import cv2
 import numpy as np
-# from deep_sort_realtime.deepsort_tracker import DeepSort
+import os
 from sort import Sort
 
 # 設定裝置為MPS
 device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
 
 # 初始化SORT追蹤器
-tracker = Sort
-# tracker = DeepSort(max_age=30, n_init=3, nms_max_overlap=1.0, max_cosine_distance=0.3, nn_budget=100)
+tracker = Sort()
 
 # 載入YOLOv5模型
-model = torch.hub.load('ultralytics/yolov5', 'yolov5l', pretrained=True)
+model = torch.hub.load('ultralytics/yolov5', 'yolov5m', pretrained=True)
 model.to(device)
 
+video_name = '20230309_073056.MOV'
+# video_name = 'blinkers-2-1.MOV'
+
 # 設定影片來源，0表示從攝像頭讀取，可以替換為影片文件路徑
-video_name = 'blinkers-1-1.MOV'
-video_path = 'videos/' + video_name
-# video_path = 'videos/20230309_073056-1.MOV'
-# video_path = 'videos/20230309_073056.MOV'
+video_path = './data/videos/' + video_name
 # video_path = 0
 cap = cv2.VideoCapture(video_path)
 
@@ -37,11 +34,17 @@ confidence_threshold = 0.4
 class_names = model.names
 
 # 創建存儲文件夾的基礎路徑
-output_base_dir = "output-" + video_name
+output_base_dir = "./data/output/" + video_name
 
-frame_count = 0
+# 創建基礎文件夾
+if not os.path.exists(output_base_dir):
+    os.makedirs(output_base_dir)
 
 # 物體顏色列表（這裡假設根據某些規則，你已經為每個類別定義了顏色）
+# 假設2、5、7分別是car, bus, truck
+colors = {2: 'blue', 5: 'yellow', 7: 'silver'}  # 根據類別索引映射顏色
+
+frame_count = 0
 
 while cap.isOpened():
     ret, frame = cap.read()
@@ -58,8 +61,8 @@ while cap.isOpened():
     confident_boxes = pred[pred[:, 4] > confidence_threshold]
 
     # 過濾出類別為vehicle且置信度大於閥值的預測框
-    # 假設2、5、7分別是car, bus, truck
-    vehicle_indices = ((confident_boxes[:, -1] == 2) | (confident_boxes[:, -1] == 5) | (confident_boxes[:, -1] == 7))
+    vehicle_indices = ((confident_boxes[:, -1] == 2) | (confident_boxes[:, -1] == 5) | (
+                confident_boxes[:, -1] == 7))  # 假設'2'是'vehicle'的類別索引
     vehicle_boxes = confident_boxes[vehicle_indices]
 
     # 繪製過濾後的結果
@@ -79,13 +82,6 @@ while cap.isOpened():
     # 進行追蹤
     tracked_objects = tracker.update(np.array(detections))
 
-    # 繪製過濾後的結果
-    annotated_frame = frame.copy()
-    frame_width = frame.shape[1]
-    frame_height = frame.shape[0]
-    central_region_min = 2 * frame_width / 6
-    central_region_max = 4 * frame_width / 6
-
     for obj in tracked_objects:
         x1, y1, x2, y2, obj_id = [int(coord) for coord in obj[:5]]
 
@@ -101,7 +97,7 @@ while cap.isOpened():
             central_vehicles.append((location, car_width, (x1, y1, x2, y2, obj_id)))
 
     # 根據車寬排序並選取值前三之車輛
-    central_vehicles = sorted(central_vehicles, key=lambda x: x[1], reverse=True)[:3]
+    # central_vehicles = sorted(central_vehicles, key=lambda x: x[1], reverse=True)[:3]
 
     for vehicle in central_vehicles:
         location, car_width, (x1, y1, x2, y2, obj_id) = vehicle
@@ -122,11 +118,10 @@ while cap.isOpened():
         # 保存圖片
         cv2.imwrite(os.path.join(vehicle_dir, f"frame_{frame_count}.jpg"), vehicle_crop)
 
-    # 繪製中央區域矩形框
-    cv2.rectangle(annotated_frame, (int(central_region_min), 0), (int(central_region_max), frame_height),
-                      (255, 0, 0),
-                      2)
-
+    # # 繪製中央區域矩形框
+    # cv2.rectangle(annotated_frame, (int(central_region_min), 0), (int(central_region_max), frame_height),
+    #               (255, 0, 0),
+    #               2)
 
     # 取得原始YOLO結果
     original_results_img = results.render()[0]
@@ -134,10 +129,10 @@ while cap.isOpened():
     # 合併顯示原始YOLO結果與過濾後的結果
     combined_frame = cv2.hconcat([original_results_img, annotated_frame])
 
-    frame_count += 1
-
     # 顯示結果圖像
     cv2.imshow('YOLOv5 Vehicle Detection', combined_frame)
+
+    frame_count += 1
 
     # 按q鍵退出
     if cv2.waitKey(1) & 0xFF == ord('q'):
