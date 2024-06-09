@@ -64,7 +64,6 @@ class ImageProcessor:
         left_brightness = np.mean(cv2.cvtColor(left_half, cv2.COLOR_BGR2GRAY))
         right_brightness = np.mean(cv2.cvtColor(right_half, cv2.COLOR_BGR2GRAY))
 
-
         if (left_brightness - right_brightness) < 1:
             return None
 
@@ -85,14 +84,14 @@ class ImageProcessor:
         #     img1 = cv2.imread(img1_path)
         #     img2 = cv2.imread(img2_path)
 
-            # if self.compare_images(img1, img2):
-            #     start_index = i
-            #     while i < len(self.image_files) - 1 and self.compare_images(cv2.imread(self.image_files[i]),
-            #                                                                 cv2.imread(self.image_files[i + 1])):
-            #         i += 1
-            #         del self.image_files[start_index:i + 1]
-            # else:
-            #     i += 1
+        # if self.compare_images(img1, img2):
+        #     start_index = i
+        #     while i < len(self.image_files) - 1 and self.compare_images(cv2.imread(self.image_files[i]),
+        #                                                                 cv2.imread(self.image_files[i + 1])):
+        #         i += 1
+        #         del self.image_files[start_index:i + 1]
+        # else:
+        #     i += 1
 
         indices_to_remove = []
         for i in range(len(self.image_files) - 1):
