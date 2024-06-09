@@ -1,17 +1,18 @@
 import cv2
 import json
 import os
+from blinker_detection import ImageProcessor
 
-video = '20230309_073056-1'
+# video = '20230309_073056-1'
 # video = 'blinkers-2-1'
-
+video = 'night_driving-2'
 
 # 读取视频
 video_path = './data/videos/train/' + video + '.mp4'
 cap = cv2.VideoCapture(video_path)
 
 # 读取 JSON 文件
-json_path = './data/videos/train/' + video +'.MOV_detections.json'
+json_path = './data/videos/train/' + video + '.MOV_detections.json'
 with open(json_path, 'r') as f:
     detections = json.load(f)
 
@@ -55,7 +56,13 @@ for detection in detections:
     # 保存裁剪的图片
     save_path = os.path.join(id_folder, f'frame_{frame_number}_id_{obj_id}.png')
     cv2.imwrite(save_path, cropped_image)
-    print(f'Saved cropped image for ID {obj_id} in frame {frame_number} to {save_path}')
+    # print(f'Saved cropped image for ID {obj_id} in frame {frame_number} to {save_path}')
 
 cap.release()
 cv2.destroyAllWindows()
+
+for folder_path in os.listdir(output_dir):
+    if folder_path == "5":
+        # print(output_dir + '/' + folder_path)
+        processor = ImageProcessor(output_dir + '/' + folder_path)
+        processor.run()
