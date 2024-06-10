@@ -1,16 +1,15 @@
 import json
 import os
 import shutil
-
 import cv2
 import numpy as np
 from skimage.metrics import structural_similarity as ssim
 
-
 class ImageProcessor:
-    def __init__(self, folder_path, interval=5):
+    def __init__(self, folder_path, interval=5, resize_dim=(256, 256)):
         self.folder_path = folder_path
         self.interval = interval
+        self.resize_dim = resize_dim
         self.image_files = self.load_images_from_folder(interval=interval)
         self.original_image_files = self.load_images_from_folder(interval=1)
 
@@ -22,26 +21,39 @@ class ImageProcessor:
         filenames = [f[0] for f in sorted_files]
         return filenames[::interval]
 
+    def read_and_resize_image(self, filepath):
+        image = cv2.imread(filepath)
+        if image is not None:
+            image = cv2.resize(image, self.resize_dim)
+        return image
+
     @staticmethod
-    def compare_images(img1, img2):
+    def compare_images(img1, img2, threshold=0.3):
         gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
         gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
-        gray1 = cv2.resize(gray1, (256, 256))
-        gray2 = cv2.resize(gray2, (256, 256))
         score, _ = ssim(gray1, gray2, full=True)
-        threshold = 0.3
         return score > threshold
 
     @staticmethod
-    def compare_images_bright(img1, img2):
+    def calculate_dynamic_threshold(images, factor=0.5):
+        brightness_diffs = []
+        for i in range(len(images) - 1):
+            img1 = cv2.cvtColor(images[i], cv2.COLOR_BGR2GRAY)
+            img2 = cv2.cvtColor(images[i + 1], cv2.COLOR_BGR2GRAY)
+            diff = cv2.absdiff(img1, img2)
+            brightness_diffs.append(np.mean(diff))
+        mean_diff = np.mean(brightness_diffs)
+        std_diff = np.std(brightness_diffs)
+        lower_threshold = max(5, mean_diff - factor * std_diff)
+        higher_threshold = min(255, mean_diff + factor * std_diff)
+        return lower_threshold, higher_threshold
+
+    def compare_images_bright(self, img1, img2):
+        lower_threshold, higher_threshold = self.calculate_dynamic_threshold([img1, img2])
         gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
         gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
-        gray1 = cv2.resize(gray1, (256, 256))
-        gray2 = cv2.resize(gray2, (256, 256))
         diff = cv2.absdiff(gray1, gray2)
         mean_diff = np.mean(diff)
-        lower_threshold = 14
-        higher_threshold = 50
         return lower_threshold <= mean_diff <= higher_threshold
 
     @staticmethod
@@ -57,46 +69,49 @@ class ImageProcessor:
         return image_with_rect
 
     @staticmethod
-    def detect_highlight(image):
+    def detect_highlight(image, prev_image=None, factor=1.5, min_diff_threshold=30, dynamic_adjustment=True):
         height, width, _ = image.shape
-        left_half = image[2 * height // 7:3 * height // 8, :2 * width // 8]
-        right_half = image[2 * height // 7:3 * height // 8, 5 * width // 8:width]
-        left_brightness = np.mean(cv2.cvtColor(left_half, cv2.COLOR_BGR2GRAY))
-        right_brightness = np.mean(cv2.cvtColor(right_half, cv2.COLOR_BGR2GRAY))
+        left_region = image[int(0.25 * height):int(0.5 * height), :int(0.2 * width)]
+        right_region = image[int(0.25 * height):int(0.5 * height), int(0.8 * width):]
 
-        if (left_brightness - right_brightness) < 1:
+        left_brightness = np.mean(cv2.cvtColor(left_region, cv2.COLOR_BGR2GRAY))
+        right_brightness = np.mean(cv2.cvtColor(right_region, cv2.COLOR_BGR2GRAY))
+
+        if prev_image is not None:
+            prev_left_region = prev_image[int(0.25 * height):int(0.5 * height), :int(0.2 * width)]
+            prev_right_region = prev_image[int(0.25 * height):int(0.5 * height), int(0.8 * width):]
+
+            left_diff = np.mean(cv2.absdiff(cv2.cvtColor(left_region, cv2.COLOR_BGR2GRAY),
+                                            cv2.cvtColor(prev_left_region, cv2.COLOR_BGR2GRAY)))
+            right_diff = np.mean(cv2.absdiff(cv2.cvtColor(right_region, cv2.COLOR_BGR2GRAY),
+                                             cv2.cvtColor(prev_right_region, cv2.COLOR_BGR2GRAY)))
+        else:
+            left_diff = right_diff = 0
+
+        brightness_threshold = factor * np.std([left_brightness, right_brightness])
+        diff_threshold = factor * np.std([left_diff, right_diff])
+
+        print(abs(left_diff), abs(right_diff))
+
+        if abs(left_diff) < min_diff_threshold and abs(right_diff) < min_diff_threshold:
+            print('None')
+            return None
+        elif left_brightness > right_brightness and left_diff > diff_threshold:
+            if dynamic_adjustment:
+                diff_threshold *= 1.5  # Increase threshold for right side to reduce false positives
+            return "left"
+        elif right_brightness > left_brightness and right_diff > diff_threshold:
+            if dynamic_adjustment:
+                diff_threshold *= 1.5  # Increase threshold for left side to reduce false positives
+            return "right"
+        else:
             return None
 
-        elif left_brightness > right_brightness:
-            return "left"
-
-        elif right_brightness > left_brightness:
-            return "right"
-
-        else:
-            return "same"
-
     def process_images(self):
-        i = 0
-        # while i < len(self.image_files) - 1:
-        #     img1_path = self.image_files[i]
-        #     img2_path = self.image_files[i + 1]
-        #     img1 = cv2.imread(img1_path)
-        #     img2 = cv2.imread(img2_path)
-
-        # if self.compare_images(img1, img2):
-        #     start_index = i
-        #     while i < len(self.image_files) - 1 and self.compare_images(cv2.imread(self.image_files[i]),
-        #                                                                 cv2.imread(self.image_files[i + 1])):
-        #         i += 1
-        #         del self.image_files[start_index:i + 1]
-        # else:
-        #     i += 1
-
         indices_to_remove = []
         for i in range(len(self.image_files) - 1):
-            img1 = cv2.imread(self.image_files[i])
-            img2 = cv2.imread(self.image_files[i + 1])
+            img1 = self.read_and_resize_image(self.image_files[i])
+            img2 = self.read_and_resize_image(self.image_files[i + 1])
             if not self.compare_images_bright(img1, img2):
                 indices_to_remove.append(i)
 
@@ -106,7 +121,7 @@ class ImageProcessor:
         return self.image_files
 
     def save_processed_images(self, image_files):
-        destination_folder = './data/output_blinker/' + os.path.basename(self.folder_path) + '-1/'
+        destination_folder = './data/output_blinker/' + os.path.basename(self.folder_path) + '/'
         if not os.path.exists(destination_folder):
             os.makedirs(destination_folder)
         for img_file in self.image_files:
@@ -114,15 +129,14 @@ class ImageProcessor:
 
         self.image_files = image_files
 
-        # self.image_files = self.load_images_from_folder(self.interval)
         leftRight = []
+        prev_image = None
 
         for img_file in self.image_files:
-            image = cv2.imread(img_file)
-            leftOrRight = self.detect_highlight(image)
+            image = self.read_and_resize_image(img_file)
+            leftOrRight = self.detect_highlight(image, prev_image, min_diff_threshold=30)
             leftRight.append({"file_name": os.path.basename(img_file), "left_or_right": leftOrRight})
-            # cv2.imshow('image', self.draw_dividing_lines(image))
-            # cv2.waitKey(0)
+            prev_image = image
 
         remaining_files = set(os.path.basename(f) for f in self.image_files)
         for original_file in self.original_image_files:
@@ -135,13 +149,12 @@ class ImageProcessor:
 
         leftRight.sort(key=lambda x: int(x["file_name"].split("_")[1].split(".")[0]))
 
-        # 修改中間四個index的值
         for i in range(0, len(leftRight) - 5, 5):
             current_value = leftRight[i]["left_or_right"]
             next_value = leftRight[i + 5]["left_or_right"]
             if current_value == next_value:
                 for j in range(1, 5):
-                    if i + j < len(leftRight) - 1:  # 確保不超出範圍
+                    if i + j < len(leftRight) - 1:
                         leftRight[i + j]["left_or_right"] = current_value
 
         with open(destination_folder + 'left_or_right_temp.json', 'w') as f:
@@ -153,7 +166,6 @@ class ImageProcessor:
 
 
 if __name__ == "__main__":
-    # folder_path = './data/output_deepsort/20230309_073056-1/5'
     folder_path = './data/output_deepsort/night_driving-2/5'
     processor = ImageProcessor(folder_path)
     processor.run()
