@@ -8,7 +8,7 @@ import imageio
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 
-print(sys.path)
+# print(sys.path)
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
@@ -105,6 +105,7 @@ def detect(cfg,opt):
         nms_time.update(t4-t3,img.size(0))
         det=det_pred[0]
 
+        # print(Path(path).name)
         save_path = str(opt.save_dir +'/'+ Path(path).name) if dataset.mode != 'stream' else str(opt.save_dir + '/' + "web.mp4")
 
         _, _, height, width = img.shape
@@ -126,8 +127,8 @@ def detect(cfg,opt):
         _, ll_seg_mask = torch.max(ll_seg_mask, 1)
         ll_seg_mask = ll_seg_mask.int().squeeze().cpu().numpy()
         # Lane line post-processing
-        #ll_seg_mask = morphological_process(ll_seg_mask, kernel_size=7, func_type=cv2.MORPH_OPEN)
-        #ll_seg_mask = connect_lane(ll_seg_mask)
+        # ll_seg_mask = morphological_process(ll_seg_mask, kernel_size=7, func_type=cv2.MORPH_OPEN)
+        # ll_seg_mask = connect_lane(ll_seg_mask)
 
         img_det = show_seg_result(img_det, (da_seg_mask, ll_seg_mask), _, _, is_demo=True)
 

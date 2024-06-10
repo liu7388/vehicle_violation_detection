@@ -5,8 +5,10 @@ __pycache__/
 .vscode/
 bdd/
 runs/
-inference/
+#inference/
 *.pth
 *.pt
 *.tar
 *.tar.gz
+
+venv
