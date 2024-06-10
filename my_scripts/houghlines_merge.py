@@ -34,7 +34,7 @@ def houghlines_merge(gray):
         theda_accept_weight = 30
         theda_abandon_weight = 20
         theda_weight_increase_step = 2
-        theda_weight_decrease_step = 2.5
+        theda_weight_decrease_step = 3
         for theda in list(theda_history.keys()):
             if grouped_lines.get(theda) is None:
                 if theda_history[theda] <= round(theda_abandon_weight):

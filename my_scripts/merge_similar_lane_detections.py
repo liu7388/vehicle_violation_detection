@@ -20,17 +20,13 @@ def merge_similar_lane_detections(lines):
         for j in range(len(numbers)):
             if i != j and numbers[j] not in used_numbers:
                 # 如果另一個數字與當前數字的差的絕對值小於等於3，則將該數字添加到當前分組中
-                if abs(numbers[i] - numbers[j]) <= 3:
+                similar_range = 6
+                if abs(numbers[i] - numbers[j]) <= similar_range:
                     current_group.append(numbers[j])
                     used_numbers.add(numbers[j])  # 標記該數字已經被分組
 
         # 將當前分組添加到結果列表中
         groups.append(current_group)
-
-        # [78, 75, 81]
-        # [-60]
-        # [-78]
-        # [54, 57]
 
     best_lines_merged_list = []
 
@@ -55,6 +51,7 @@ def merge_similar_lane_detections(lines):
 
     # print("best_lines_merged_list:", best_lines_merged_list)
 
+    print("Lanes detected:", len(groups))
     print("Theda groups:", groups, end="\n\n")
     # if len(groups) >= 4:
     #     exit()

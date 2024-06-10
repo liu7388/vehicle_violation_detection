@@ -149,11 +149,12 @@ def detect(cfg, opt):
                 y2 = int(y2 * 2 / 3)
                 cv2.line(img_det, (x1, y1), (x2, y2), (0, 0, 255), 2)
 
-        if len(det):
-            det[:, :4] = scale_coords(img.shape[2:], det[:, :4], img_det.shape).round()
-            for *xyxy, conf, cls in reversed(det):
-                label_det_pred = f'{names[int(cls)]} {conf:.2f}'
-                plot_one_box(xyxy, img_det, label=label_det_pred, color=colors[int(cls)], line_thickness=2)
+        # 畫出 Car detection 的框框
+        # if len(det):
+        #     det[:, :4] = scale_coords(img.shape[2:], det[:, :4], img_det.shape).round()
+        #     for *xyxy, conf, cls in reversed(det):
+        #         label_det_pred = f'{names[int(cls)]} {conf:.2f}'
+        #         plot_one_box(xyxy, img_det, label=label_det_pred, color=colors[int(cls)], line_thickness=2)
 
         if dataset.mode == 'images':
             cv2.imwrite(save_path, img_det)

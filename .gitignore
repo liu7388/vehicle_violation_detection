@@ -12,3 +12,4 @@ runs/
 *.tar.gz
 
 venv
+slope_plot.png
