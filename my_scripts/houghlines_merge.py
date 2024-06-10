@@ -2,90 +2,117 @@ import cv2
 import numpy as np
 import pathlib
 import os
+from math import acos, sqrt, degrees
+from my_scripts.merge_similar_lane_detections import merge_similar_lane_detections
+
+theda_history = {}
+grouped_lines = {}
+previous_grouped_lines = {}
 
 def houghlines_merge(gray):
-    def merge_similar_lines(lines):
-        merged_lines = []
+    def lines_filter(lines):
+        global theda_history
+        global grouped_lines
+        global previous_grouped_lines
+
+        best_lines = {}
         grouped_lines = {}
 
         for line in lines:
             x1, y1, x2, y2 = line[0]
-            # 计算斜率
             if x2 - x1 != 0:
-                slope = (y2 - y1) / (x2 - x1)
-                # 将斜率相似的线分组
-                grouped_lines.setdefault(round(slope, 1), []).append(line)
+                # 將角度相似的線分組
+                theda_interval = 3
+                if y2 - y1 >= 0: theda = 90 - degrees(acos((x2 - x1) / sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)))
+                else: theda = (-1) * (90 - degrees(acos((x2 - x1) / sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2))))
+                q, r = divmod(theda, theda_interval)
+                adjusted_theda = int(q * theda_interval + round(r * (1 / theda_interval)) * theda_interval)
+                if -80 <= theda <= 80:
+                    grouped_lines.setdefault(adjusted_theda, []).append(line)
 
-        # 对每个斜率组中的线找到位置最置中的线段
-        for slope, group in grouped_lines.items():
-            print(f"Slope: {slope}")
-            print(f"Group: {group}")
+        theda_max_weight = 250
+        theda_accept_weight = 30
+        theda_abandon_weight = 20
+        theda_weight_increase_step = 2
+        theda_weight_decrease_step = 2.5
+        for theda in list(theda_history.keys()):
+            if grouped_lines.get(theda) is None:
+                if theda_history[theda] <= round(theda_abandon_weight):
+                    del theda_history[theda]
+                else:
+                    grouped_lines[theda] = previous_grouped_lines[theda]
+                    theda_history[theda] -= theda_weight_decrease_step
 
-            # 计算每条线段的中点
-            midpoints = []
+        previous_grouped_lines = grouped_lines.copy()
+
+        for theda in list(grouped_lines.keys()):
+            if theda_history.get(theda) is None:
+                del grouped_lines[theda]
+                theda_history[theda] = 1
+            elif theda_history[theda] == theda_max_weight:
+                pass
+            elif theda_history[theda] >= theda_accept_weight:
+                theda_history[theda] += theda_weight_increase_step
+            elif 0 < theda_history[theda] < theda_accept_weight:
+                del grouped_lines[theda]
+                theda_history[theda] += theda_weight_increase_step
+
+        # print(f"\n\nAlive lines theda: {grouped_lines.keys()}")
+        print(f"\nHistory lines' weight: {theda_history}")
+
+        # 找每個角度中最長的線
+        for theda, group in grouped_lines.items():
+            max_length = 0
+            best_line = None
+
             for line in group:
                 x1, y1, x2, y2 = line[0]
-                mid_x = (x1 + x2) / 2
-                mid_y = (y1 + y2) / 2
-                midpoints.append((mid_x, mid_y))
+                length = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)  # 计算线段长度
 
-            # 计算组中所有中点的平均值
-            avg_mid_x = np.mean([pt[0] for pt in midpoints])
-            avg_mid_y = np.mean([pt[1] for pt in midpoints])
+                if length > max_length:
+                    max_length = length
+                    best_line = line
 
-            # 找到距离平均中点最近的线段
-            min_distance = float('inf')
-            best_line = None
-            for i, (mid_x, mid_y) in enumerate(midpoints):
-                distance = np.sqrt((mid_x - avg_mid_x) ** 2 + (mid_y - avg_mid_y) ** 2)
-                if distance < min_distance:
-                    min_distance = distance
-                    best_line = group[i]
+            if best_line is not None:
+                best_lines[theda] = best_line
 
-            # 添加最置中的线段
-            merged_lines.append(best_line)
+        return best_lines
 
-            # 绘制所有的线段
-            # for line in group:
-            #     x1, y1, x2, y2 = line[0]
-            #     cv2.line(image, (x1, y1), (x2, y2), (0, 255, 0), 1)
+    # 霍夫直線偵測
+    threshold = 140
+    lines = cv2.HoughLinesP(gray, 1, np.pi/360, threshold=threshold, minLineLength=80, maxLineGap=50)
 
-        return merged_lines
+    # 過濾偵測出來的線（），回傳一個 dictionary
+    best_lines_dictionary = lines_filter(lines)
 
-    # 进行霍夫直线变换
-    lines = cv2.HoughLinesP(gray, 1, np.pi/180, threshold=150, minLineLength=100, maxLineGap=10)
+    # 合併相似角度的線，回傳得到一個 list [ [[x1, y1, x2, y2]], [[x1, y1, x2, y2]], ... ]
+    best_lines_merged_list = merge_similar_lane_detections(best_lines_dictionary)
 
-    # 合并相似斜率的线
-    merged_lines = merge_similar_lines(lines)
-
-    return merged_lines
+    return best_lines_merged_list
 
 
 if __name__ == "__main__":
-    # 构建图像路径
+    # 讀取圖片
     image_path = str(pathlib.Path(os.path.abspath(__file__)).parents[1]) + '/lanes_mask.png'
-
-    # 读取图像
     image = cv2.imread(image_path)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     # edges = cv2.Canny(gray, 50, 150, apertureSize=3)
 
-    # 定义内核
+    # 設定kernel
     kernel = np.ones((5, 5), np.uint8)
-    # 进行膨胀操作
+    # 膨脹
     gray = cv2.dilate(gray, kernel, iterations=1)
-    # 进行侵蚀操作
-    gray = cv2.erode(gray, kernel, iterations=1)
+    # 侵蝕
+    gray = cv2.erode(gray, kernel, iterations=2)
 
     merged_lines = houghlines_merge(gray)
 
-    # 绘制检测到的直线
+    # 畫出直線
     if merged_lines is not None:
         for line in merged_lines:
             x1, y1, x2, y2 = line[0]
             cv2.line(image, (x1, y1), (x2, y2), (0, 0, 255), 3)
 
-    # 显示结果
     cv2.namedWindow('Hough Lines', cv2.WINDOW_NORMAL)
     cv2.resizeWindow('Hough Lines', 1280, 720)
     cv2.imshow('Hough Lines', image)
