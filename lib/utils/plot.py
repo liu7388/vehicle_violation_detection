@@ -46,8 +46,8 @@ def show_seg_result(img, result, index, epoch, save_dir=None, is_ll=False,palett
         # for label, color in enumerate(palette):
         #     color_area[result[0] == label, :] = color
 
-        color_area[result[0] == 1] = [0, 255, 0]
-        color_area[result[1] ==1] = [255, 0, 0]
+        # color_area[result[0] == 1] = [0, 255, 0]
+        # color_area[result[1] ==1] = [255, 0, 0]
         color_seg = color_area
 
     # convert to BGR
