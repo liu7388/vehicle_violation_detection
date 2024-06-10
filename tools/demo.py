@@ -115,6 +115,7 @@ def detect(cfg,opt):
         pad_h = int(pad_h)
         ratio = shapes[1][0][1]
 
+
         da_predict = da_seg_out[:, :, pad_h:(height-pad_h),pad_w:(width-pad_w)]
         da_seg_mask = torch.nn.functional.interpolate(da_predict, scale_factor=int(1/ratio), mode='bilinear')
         _, da_seg_mask = torch.max(da_seg_mask, 1)
@@ -129,6 +130,15 @@ def detect(cfg,opt):
         # Lane line post-processing
         # ll_seg_mask = morphological_process(ll_seg_mask, kernel_size=7, func_type=cv2.MORPH_OPEN)
         # ll_seg_mask = connect_lane(ll_seg_mask)
+
+        lanes_mask = ll_seg_mask.copy()
+        min_val = np.min(lanes_mask)
+        max_val = np.max(lanes_mask)
+        lanes_mask = (lanes_mask - min_val) * (255 / (max_val - min_val))
+        lanes_mask = lanes_mask.astype(np.uint8)
+
+        cv2.imwrite("lanes_mask.png", lanes_mask)
+
 
         img_det = show_seg_result(img_det, (da_seg_mask, ll_seg_mask), _, _, is_demo=True)
 
