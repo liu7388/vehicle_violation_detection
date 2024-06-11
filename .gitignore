@@ -6,3 +6,7 @@ vehicle/yolov5s.pt
 vehicle/yolov5l.pt
 .idea/
 sort/
+YOLOv8-DeepSORT-Object-Tracking/
+ultralytics.egg-info/
+dist/
+build/

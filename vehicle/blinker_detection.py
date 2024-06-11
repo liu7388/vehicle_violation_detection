@@ -121,7 +121,7 @@ class ImageProcessor:
         return self.image_files
 
     def save_processed_images(self, image_files):
-        destination_folder = './data/output_blinker/' + os.path.basename(self.folder_path) + '/'
+        destination_folder = '/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/vehicle/data/output_blinker' + os.path.basename(self.folder_path) + '/'
         if not os.path.exists(destination_folder):
             os.makedirs(destination_folder)
         for img_file in self.image_files:

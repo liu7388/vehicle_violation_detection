@@ -2,6 +2,7 @@ import cv2
 import json
 import os
 from blinker_detection import ImageProcessor
+import argparse
 
 
 def annotate_video_with_detections(video_path, detections, output_video_path):
@@ -48,15 +49,35 @@ def annotate_video_with_detections(video_path, detections, output_video_path):
 target_id = 5
 # video = '20230531_152117-1_8s'
 # video = 'night_driving-10'
-video = '20230309_073056-1'
+# video = '20230309_073056-1'
 
-video_path = './data/videos/train/' + video + '.mp4'
+
+# 创建参数解析器
+parser = argparse.ArgumentParser(description='Annotate video with detections')
+parser.add_argument('--video_name', type=str, help='Name of the video file (without extension)')
+parser.add_argument('--target_id', type=int, default=5, help='Target ID for annotation (default: 5)')
+args = parser.parse_args()
+
+
+# 检查是否提供了视频名称
+if not args.video_name:
+    print("Error: You need to provide a video name using --video_name argument.")
+    exit()
+
+# 获取视频名称和目标 ID
+video = args.video_name[:-4]
+target_id = args.target_id
+
+
+print(video, target_id)
+
+video_path = '/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/vehicle/data/videos/train/' + video + '.mp4'
 cap = cv2.VideoCapture(video_path)
 
-json_path = './data/videos/train/' + video + '.MOV_detections.json'
+json_path = '/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/vehicle/data/videos/train/' + video + '.MOV_detections.json'
 with open(json_path, 'r') as f:
     detections = json.load(f)
-output_dir = './data/output_deepsort/' + video
+output_dir = '/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/vehicle/data/output_deepsort/' + video
 os.makedirs(output_dir, exist_ok=True)
 
 for detection in detections:
@@ -90,11 +111,11 @@ for detection in detections:
 cap.release()
 cv2.destroyAllWindows()
 
-folder_path = './data/output_deepsort/' + video + '/' + str(target_id)
+folder_path = '/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/vehicle/data/output_deepsort/' + video + '/' + str(target_id)
 processor = ImageProcessor(folder_path)
 processor.run()
 
-new_json_path = './data/output_blinker/' + str(target_id) + '/left_or_right_temp.json'
+new_json_path = '/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/vehicle/data/output_blinker/' + str(target_id) + '/left_or_right_temp.json'
 with open(new_json_path, 'r') as f:
     new_data = json.load(f)
 
@@ -106,10 +127,11 @@ for detection in detections:
     file_name = f'frame_{frame_number}_id_{obj_id}.png'
     detection['left_or_right'] = left_or_right_dict.get(file_name, None)
 
-merged_json_path = './data/videos/train/' + video + '_merged.json'
+merged_json_path = '/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/vehicle/data/videos/train/' + video + '_merged.json'
 with open(merged_json_path, 'w') as f:
     json.dump(detections, f, indent=4)
 
-output_video_path = './data/output/' + video + '_annotated.mp4'
+output_video_path = '/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/vehicle/data/output/' + video + '_annotated.mp4'
 
-annotate_video_with_detections('./data/videos/train/' + video + '.mp4', detections, output_video_path)
+annotate_video_with_detections('/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/vehicle/data/videos'
+                               '/train/' + video + '.mp4', detections, output_video_path)
