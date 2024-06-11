@@ -4,7 +4,7 @@ __pycache__/
 .tmp/
 .vscode/
 bdd/
-runs/
+violation_determination/runs/
 #inference/
 *.pth
 *.pt
@@ -12,5 +12,5 @@ runs/
 *.tar.gz
 
 venv
-slope_plot.png
-my_scripts/test.py
+violation_determination/slope_plot.png
+violation_determination/my_scripts/test.py

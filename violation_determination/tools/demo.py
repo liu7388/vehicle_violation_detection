@@ -13,27 +13,22 @@ import cv2
 import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
-import scipy.special
 import numpy as np
 import torchvision.transforms as transforms
-import PIL.Image as image
-from PIL import Image, ImageDraw, ImageFont
 
-from lib.config import cfg
-from lib.config import update_config
-from lib.utils.utils import create_logger, select_device, time_synchronized
-from lib.models import get_net
-from lib.dataset import LoadImages, LoadStreams
-from lib.core.general import non_max_suppression, scale_coords
-from lib.utils import plot_one_box, show_seg_result
-from lib.core.function import AverageMeter
-from lib.core.postprocess import morphological_process, connect_lane
+from violation_determination.lib.config import cfg
+from violation_determination.lib.utils.utils import create_logger, select_device, time_synchronized
+from violation_determination.lib.models import get_net
+from violation_determination.lib.dataset import LoadImages, LoadStreams
+from violation_determination.lib.core.general import non_max_suppression, scale_coords
+from violation_determination.lib.utils import show_seg_result
+from violation_determination.lib.core.function import AverageMeter
 from tqdm import tqdm
 
-from my_scripts.houghlines_merge import houghlines_merge
+from violation_determination.my_scripts.houghlines_merge import houghlines_merge
 import json
-from my_scripts.car_in_which_lane import car_in_which_lane
-from my_scripts.determine_blinkers_violation import determine_blinkers_violation
+from violation_determination.my_scripts.car_in_which_lane import car_in_which_lane
+from violation_determination.my_scripts.determine_blinkers_violation import determine_blinkers_violation
 
 normalize = transforms.Normalize(
     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]

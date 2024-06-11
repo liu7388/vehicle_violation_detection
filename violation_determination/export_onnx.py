@@ -160,7 +160,7 @@ if __name__ == "__main__":
     height = args.height
     width = args.width
     print("Load ./weights/End-to-end.pth done!")
-    onnx_path = f'./weights/yolop-{height}-{width}.onnx'
+    onnx_path = f'weights/yolop-{height}-{width}.onnx'
     inputs = torch.randn(1, 3, height, width)
 
     print(f"Converting to {onnx_path}")

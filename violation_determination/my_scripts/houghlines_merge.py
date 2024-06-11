@@ -3,7 +3,7 @@ import numpy as np
 from pathlib import Path
 import os
 from math import acos, sqrt, degrees
-from my_scripts.merge_similar_lane_detections import merge_similar_lane_detections
+from violation_determination.my_scripts.merge_similar_lane_detections import merge_similar_lane_detections
 
 theda_history = {}
 grouped_lines = {}

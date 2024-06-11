@@ -52,10 +52,10 @@ def infer_yolop(weight="yolop-640-640.onnx",
 
     print("num outputs: ", len(outputs_info))
 
-    save_det_path = f"./pictures/detect_onnx.jpg"
-    save_da_path = f"./pictures/da_onnx.jpg"
-    save_ll_path = f"./pictures/ll_onnx.jpg"
-    save_merge_path = f"./pictures/output_onnx.jpg"
+    save_det_path = f"pictures/detect_onnx.jpg"
+    save_da_path = f"pictures/da_onnx.jpg"
+    save_ll_path = f"pictures/ll_onnx.jpg"
+    save_merge_path = f"pictures/output_onnx.jpg"
 
     img_bgr = cv2.imread(img_path)
     height, width, _ = img_bgr.shape
