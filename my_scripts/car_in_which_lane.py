@@ -1,85 +1,46 @@
-import matplotlib.pyplot as plt
-import numpy as np
+def get_line_equation_output_y(eq, x):
+    return eq[2] * x + eq[3]
 
-# 圖片尺寸
-width = 1920
-height = 1080
 
-# 圖片中心點
-center_x = width // 2
-center_y = height // 2
-
-# 斜率
-slopes = [0.5, 2, -2, -0.5]
-
-left_lines_slope = []
-right_lines_slope = []
-
-for i in slopes:
-    if i < 0:
-        left_lines_slope.append(i)
-    if i > 0:
-        right_lines_slope.append(i)
-left_lines_slope.sort(reverse=True)
-right_lines_slope.sort(reverse=True)
-
-print(left_lines_slope, right_lines_slope)
-
-# 計算每條線在圖片下邊界的交點
-intersections = []
-for slope in slopes:
-    b = center_y - slope * center_x
-    x_intersection = (height - b) / slope
-    intersections.append((x_intersection, height))
-
-# 圖片中點A的座標
-# 假設A點在 (x_A, y_A)
-x_A = 900  # 這是示例，你需要提供具體的A點座標
-y_A = 800   # 這是示例，你需要提供具體的A點座標
-
-# 畫圖以視覺化分割
-fig, ax = plt.subplots()
-ax.set_xlim(0, width)
-ax.set_ylim(0, height)
-
-# 繪製四條線
-x = np.linspace(0, width, 400)
-for slope in slopes:
-    ax.plot(x, slope * (x - center_x) + center_y, label=f'slope={slope}')
-
-# 繪製中心點
-ax.plot(center_x, center_y, 'ro')
-
-# 繪製A點
-ax.plot(x_A, y_A, 'bo', label='A Point')
-
-# 標記五個區域
-ax.fill_between(x, slopes[0] * (x - center_x) + center_y, slopes[1] * (x - center_x) + center_y, where=(x > center_x), interpolate=True, color='orange', alpha=0.3)
-ax.fill_between(x, slopes[2] * (x - center_x) + center_y, slopes[3] * (x - center_x) + center_y, where=(x < center_x), interpolate=True, color='yellow', alpha=0.3)
-
-plt.legend()
-plt.gca().invert_yaxis()
-plt.show()
-
-# 判斷點A所在的區域
-def determine_region(x, y, center_x, center_y):
-    if len(right_lines_slope) >= 2 and len(left_lines_slope) >= 2:
-        if ((y > right_lines_slope[0] * x + (center_y - right_lines_slope[0] * center_x)) and
-                (y > left_lines_slope[-1] * x + (center_y - left_lines_slope[-1] * center_x))):
+def determine_lane(x, y, left_lines_equation, right_lines_equation):
+    if len(right_lines_equation) >= 2 and len(left_lines_equation) >= 2:
+        if ((y > get_line_equation_output_y(right_lines_equation[0], x)) and
+                (y > get_line_equation_output_y(left_lines_equation[-1], x))):
             return "Middle lane"
-        elif x >= center_x:
-            if y > right_lines_slope[1] * x + (center_y - right_lines_slope[1] * center_x):
-                return "Right lane"
-            else:
-                return "Other lane on the right side"
-        else:
-            if y > left_lines_slope[-2] * x + (center_y - left_lines_slope[-2] * center_x):
-                return "Left lane"
-            else:
-                return "Other lane on the left side"
+        elif ((y <= get_line_equation_output_y(left_lines_equation[-1], x)) and
+                (y >= get_line_equation_output_y(left_lines_equation[-2], x))):
+            return "Left lane"
+        elif y < get_line_equation_output_y(left_lines_equation[-2], x):
+            return "Other lanes on the left"
+        elif ((y <= get_line_equation_output_y(right_lines_equation[0], x)) and
+                (y >= get_line_equation_output_y(right_lines_equation[1], x))):
+            return "Right lane"
+        elif y < get_line_equation_output_y(right_lines_equation[1], x):
+            return "Other lanes on the right"
     else:
-        return "Unavailable"
+        # Number of lanes detected either on the left or right is less than 2 !
+        return "Unavailable yet"
 
-# 判斷A點的區域
-region = determine_region(x_A, y_A, center_x, center_y)
-print(f"A點位於{region}")
+
+def car_in_which_lane(target_car, lanes):
+    left_lines_equation = []
+    right_lines_equation = []
+    for line in lanes:
+        x1, y1, x2, y2 = line[0]
+        equation_para_a = (y2 - y1) / (x2 - x1)
+        equation_para_b = y1 - equation_para_a * x1
+        line_mid_x = (x1 + x2) / 2
+        line_mid_y = (y1 + y2) / 2
+        if equation_para_a < 0:
+            left_lines_equation.append(list([line_mid_x, line_mid_y, equation_para_a, equation_para_b]))
+        elif equation_para_a >= 0:
+            right_lines_equation.append(list([line_mid_x, line_mid_y, equation_para_a, equation_para_b]))
+    left_lines_equation = sorted(left_lines_equation, key=lambda x: x[2], reverse=True)
+    right_lines_equation = sorted(right_lines_equation, key=lambda x: x[2], reverse=True)
+
+    # print(left_lines_equation, right_lines_equation)
+
+    x1, y1, x2, y2 = target_car['bbox']
+    car_in_which_lane_detection_result = (determine_lane(int((x1 + x2) / 2), max(list([y1, y2])), left_lines_equation, right_lines_equation))
+
+    return car_in_which_lane_detection_result

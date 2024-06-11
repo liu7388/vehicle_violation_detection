@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-import pathlib
+from pathlib import Path
 import os
 from math import acos, sqrt, degrees
 from my_scripts.merge_similar_lane_detections import merge_similar_lane_detections
@@ -58,7 +58,7 @@ def houghlines_merge(gray):
                 theda_history[theda] += theda_weight_increase_step
 
         # print(f"\n\nAlive lines theda: {grouped_lines.keys()}")
-        print(f"\nHistory lines' weight: {theda_history}")
+        print(f"\n\nHistory lines' weight: {theda_history}")
 
         # 找每個角度中最長的線
         for theda, group in grouped_lines.items():
@@ -93,7 +93,7 @@ def houghlines_merge(gray):
 
 if __name__ == "__main__":
     # 讀取圖片
-    image_path = str(pathlib.Path(os.path.abspath(__file__)).parents[1]) + '/lanes_mask.png'
+    image_path = str(Path(os.path.abspath(__file__)).parents[1]) + '/lanes_mask.png'
     image = cv2.imread(image_path)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     # edges = cv2.Canny(gray, 50, 150, apertureSize=3)

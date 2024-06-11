@@ -17,6 +17,7 @@ import scipy.special
 import numpy as np
 import torchvision.transforms as transforms
 import PIL.Image as image
+from PIL import Image, ImageDraw, ImageFont
 
 from lib.config import cfg
 from lib.config import update_config
@@ -30,6 +31,9 @@ from lib.core.postprocess import morphological_process, connect_lane
 from tqdm import tqdm
 
 from my_scripts.houghlines_merge import houghlines_merge
+import json
+from my_scripts.car_in_which_lane import car_in_which_lane
+from my_scripts.determine_blinkers_violation import determine_blinkers_violation
 
 normalize = transforms.Normalize(
     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
@@ -83,7 +87,18 @@ def detect(cfg, opt):
     inf_time = AverageMeter()
     nms_time = AverageMeter()
 
+    blinkers_history_length = 30
+    blinkers_history_timeline = []
+    lane_history_timeline_margin = 10   # lane_history_timeline total length: 10 * 2 + 1 = 21
+    lane_history_timeline = []
+    previous_lane = None
+    current_lane = None
+    lane_history_timeline_counter = 0
+
+    detect_violation_result = None
+
     for i, (path, img, img_det, vid_cap, shapes) in tqdm(enumerate(dataset), total=len(dataset)):
+        # print("i:", i)
         img = transform(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         if img.ndimension() == 3:
@@ -126,6 +141,7 @@ def detect(cfg, opt):
         _, ll_seg_mask = torch.max(ll_seg_mask, 1)
         ll_seg_mask = ll_seg_mask.int().squeeze().cpu().numpy()
 
+        # lanes_mask: (1080, 1920)
         lanes_mask = ll_seg_mask.copy()
         min_val = np.min(lanes_mask)
         max_val = np.max(lanes_mask)
@@ -136,8 +152,13 @@ def detect(cfg, opt):
         # ll_seg_mask = morphological_process(ll_seg_mask, kernel_size=7, func_type=cv2.MORPH_OPEN)
         # ll_seg_mask = connect_lane(ll_seg_mask)
 
+        # img_det: (720, 1280, 3)
         img_det = show_seg_result(img_det, (da_seg_mask, ll_seg_mask), _, _, is_demo=True)
 
+        # print("img_det shape", img_det.shape)    # (720, 1280, 3)
+        # print("lanes_mask", lanes_mask.shape)    # (1080, 1920)
+
+        # houghlines_merge() returns np.array([[x1, y1, x2, y2], [x1, y1, x2, y2], ...], dtype=np.int32)
         houghlines = houghlines_merge(lanes_mask)
         if houghlines is not None:
             for line in houghlines:
@@ -148,6 +169,91 @@ def detect(cfg, opt):
                 x2 = int(x2 * 2 / 3)
                 y2 = int(y2 * 2 / 3)
                 cv2.line(img_det, (x1, y1), (x2, y2), (0, 0, 255), 2)
+
+        with open(str(Path(os.path.abspath(__file__)).parents[1]) + '/json/night_driving-2_merged.json', 'r') as file:
+            data = json.load(file)
+
+        # car_blinker_detection is 1920x1080
+        car_blinker_detection_width = 1920
+        scale_ratio = img_det.shape[1] / car_blinker_detection_width
+        # print(img_det.shape[1], car_blinker_detection_width)
+
+        # car_blinker_detection_items is a list of dictionaries
+        car_ID = 5
+        car_blinker_detection_list = [item for item in data if item['frame_number'] == i+1]
+        car_blinker_detection_target = next((item for item in car_blinker_detection_list if item['id'] == car_ID), None)
+        if car_blinker_detection_target is not None:
+            current_lane = car_in_which_lane(car_blinker_detection_target, houghlines)
+            if current_lane == "Unavailable yet":
+                print("Current lane:", current_lane, "(Number of lanes detected either on the left or right is less than 2!)", end="\n\n")
+            else:
+                print("Current lane:", current_lane, end="\n\n")
+            x1, y1, x2, y2 = car_blinker_detection_target["bbox"]
+            x1 = int(round(x1 * scale_ratio))
+            y1 = int(round(y1 * scale_ratio))
+            x2 = int(round(x2 * scale_ratio))
+            y2 = int(round(y2 * scale_ratio))
+            # 把當前的車道標示在影片上
+            cv2.putText(img_det, f'Lane: {current_lane}', (min(list([x1, x2])), max(list([y1, y2])) + 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2, cv2.LINE_AA)
+            if len(blinkers_history_timeline) == blinkers_history_length:
+                blinkers_history_timeline.pop(0)
+                blinkers_history_timeline.append(car_blinker_detection_target["left_or_right"])
+            elif 0 <= len(blinkers_history_timeline) < 10:
+                blinkers_history_timeline.append(car_blinker_detection_target["left_or_right"])
+        else:
+            print('No car_target')
+
+        if current_lane != "Unavailable yet":
+            if current_lane != previous_lane:
+                if len(lane_history_timeline) < 10:
+                    lane_history_timeline.append(current_lane)
+
+
+                lane_history_timeline_counter += 1
+                if lane_history_timeline_counter > 10:
+                    detect_violation_result = determine_blinkers_violation(blinkers_history_timeline, lane_history_timeline)
+                    print(f"{lane_history_timeline[0]} => {lane_history_timeline[-1]}\n{detect_violation_result}")
+
+            previous_lane = current_lane
+
+        # print("\n\nlane_history_timeline", blinkers_history_timeline, current_lane, "\n\n")
+        #
+        # if current_lane == "Unavailable yet":
+        #     print("?")
+        # elif len(lane_history_timeline) == 21:
+        #     print("?1")
+        #     detect_violation_result = determine_blinkers_violation(blinkers_history_timeline, lane_history_timeline)
+        #     print(f"{lane_history_timeline[0]} => {lane_history_timeline[1]}\n{detect_violation_result}")
+        #     # 把當前的車道標示在影片上
+        #     for j in range(lane_history_timeline_margin + 2):
+        #         lane_history_timeline.pop(0)
+        #     lane_history_timeline.append(current_lane)
+        # elif current_lane != previous_lane:
+        #     print("?2")
+        #     lane_history_timeline.append(current_lane)
+        #     lane_history_timeline.append(current_lane)
+        # elif (current_lane == previous_lane) and (current_lane is not None):
+        #     print("?3")
+        #     if len(blinkers_history_timeline) == lane_history_timeline_margin:
+        #         lane_history_timeline.pop(0)
+        #         lane_history_timeline.append(current_lane)
+        #     elif ((len(blinkers_history_timeline) < lane_history_timeline_margin) or
+        #           (len(blinkers_history_timeline) > lane_history_timeline_margin)):
+        #         lane_history_timeline.append(current_lane)
+        #
+        # print("\n\nlane_history_timeline", lane_history_timeline, current_lane, "\n\n")
+        #
+        # previous_lane = current_lane
+        # if detect_violation_result:
+        #     print("\n\n\n\n\n\n\n")
+        #     x1, y1, x2, y2 = car_blinker_detection_target["bbox"]
+        #     x1 = int(round(x1 * scale_ratio))
+        #     y1 = int(round(y1 * scale_ratio))
+        #     x2 = int(round(x2 * scale_ratio))
+        #     y2 = int(round(y2 * scale_ratio))
+        #     cv2.putText(img_det, f'{detect_violation_result}', (min(list([x1, x2])), max(list([y1, y2])) + 60),
+        #                 cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2, cv2.LINE_AA)
 
         # 畫出 Car detection 的框框
         # if len(det):
