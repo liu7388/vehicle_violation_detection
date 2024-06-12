@@ -4,7 +4,7 @@ __pycache__/
 .tmp/
 .vscode/
 bdd/
-violation_determination/runs/
+runs/
 #inference/
 *.pth
 *.pt
@@ -14,3 +14,16 @@ violation_determination/runs/
 venv
 violation_determination/slope_plot.png
 violation_determination/my_scripts/test.py
+
+venv/
+yolov5/
+vehicle/data/
+vehicle/yolov5m.pt
+vehicle/yolov5s.pt
+vehicle/yolov5l.pt
+.idea/
+sort/
+YOLOv8-DeepSORT-Object-Tracking/
+ultralytics.egg-info/
+dist/
+build/
