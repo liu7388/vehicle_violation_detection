@@ -7,6 +7,7 @@ import imageio
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
+sys.path.append(str(Path(os.path.abspath(__file__)).parents[2]))
 
 # print(sys.path)
 import cv2
@@ -55,6 +56,7 @@ def detect(cfg, opt):
     checkpoint = torch.load(opt.weights, map_location=device)
     model.load_state_dict(checkpoint['state_dict'])
     model = model.to(device)
+
     if half:
         model.half()  # to FP16
 
@@ -165,7 +167,18 @@ def detect(cfg, opt):
                 y2 = int(y2 * 2 / 3)
                 cv2.line(img_det, (x1, y1), (x2, y2), (0, 0, 255), 2)
 
-        with open(str(Path(os.path.abspath(__file__)).parents[1]) + '/json/night_driving-2_merged.json', 'r') as file:
+        parser = argparse.ArgumentParser(description='Annotate video with detections')
+        parser.add_argument('--source', type=str)
+        parser.add_argument('--save-dir', type=str)
+        parser.add_argument('--target_id', type=int, default=5, help='Target ID for annotation (default: 5)')
+        args = parser.parse_args()
+
+        video = os.path.basename(args.source[:-14])
+        car_ID = args.target_id
+        print(car_ID)
+        # save_dir = args.save-dir
+
+        with open("/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/vehicle/data/videos/train/" + video + '_merged.json', 'r') as file:
             data = json.load(file)
 
         # car_blinker_detection is 1920x1080
@@ -174,7 +187,6 @@ def detect(cfg, opt):
         # print(img_det.shape[1], car_blinker_detection_width)
 
         # car_blinker_detection_items is a list of dictionaries
-        car_ID = 5
         car_blinker_detection_list = [item for item in data if item['frame_number'] == i+1]
         car_blinker_detection_target = next((item for item in car_blinker_detection_list if item['id'] == car_ID), None)
         if car_blinker_detection_target is not None:
@@ -199,63 +211,30 @@ def detect(cfg, opt):
         else:
             print('No car_target')
 
-        if current_lane != "Unavailable yet":
-            if current_lane != previous_lane:
-                if len(lane_history_timeline) < 10:
+        if (current_lane != "Unavailable yet") and (previous_lane != "Unavailable yet"):
+            if current_lane == previous_lane:
+                if len(lane_history_timeline) <= lane_history_timeline_margin:
                     lane_history_timeline.append(current_lane)
+                else:
+                    lane_history_timeline.pop(0)
+                    lane_history_timeline.append(current_lane)
+            elif current_lane != previous_lane:
+                lane_history_timeline.pop(0)
+                lane_history_timeline.append(current_lane)
+                detect_violation_result = determine_blinkers_violation(blinkers_history_timeline, lane_history_timeline)
+                print(f"{lane_history_timeline[0]} => {lane_history_timeline[-1]}\n{detect_violation_result}")
+                lane_history_timeline = []
 
+        previous_lane = current_lane
 
-                lane_history_timeline_counter += 1
-                if lane_history_timeline_counter > 10:
-                    detect_violation_result = determine_blinkers_violation(blinkers_history_timeline, lane_history_timeline)
-                    print(f"{lane_history_timeline[0]} => {lane_history_timeline[-1]}\n{detect_violation_result}")
-
-            previous_lane = current_lane
-
-        # print("\n\nlane_history_timeline", blinkers_history_timeline, current_lane, "\n\n")
-        #
-        # if current_lane == "Unavailable yet":
-        #     print("?")
-        # elif len(lane_history_timeline) == 21:
-        #     print("?1")
-        #     detect_violation_result = determine_blinkers_violation(blinkers_history_timeline, lane_history_timeline)
-        #     print(f"{lane_history_timeline[0]} => {lane_history_timeline[1]}\n{detect_violation_result}")
-        #     # 把當前的車道標示在影片上
-        #     for j in range(lane_history_timeline_margin + 2):
-        #         lane_history_timeline.pop(0)
-        #     lane_history_timeline.append(current_lane)
-        # elif current_lane != previous_lane:
-        #     print("?2")
-        #     lane_history_timeline.append(current_lane)
-        #     lane_history_timeline.append(current_lane)
-        # elif (current_lane == previous_lane) and (current_lane is not None):
-        #     print("?3")
-        #     if len(blinkers_history_timeline) == lane_history_timeline_margin:
-        #         lane_history_timeline.pop(0)
-        #         lane_history_timeline.append(current_lane)
-        #     elif ((len(blinkers_history_timeline) < lane_history_timeline_margin) or
-        #           (len(blinkers_history_timeline) > lane_history_timeline_margin)):
-        #         lane_history_timeline.append(current_lane)
-        #
-        # print("\n\nlane_history_timeline", lane_history_timeline, current_lane, "\n\n")
-        #
-        # previous_lane = current_lane
-        # if detect_violation_result:
-        #     print("\n\n\n\n\n\n\n")
-        #     x1, y1, x2, y2 = car_blinker_detection_target["bbox"]
-        #     x1 = int(round(x1 * scale_ratio))
-        #     y1 = int(round(y1 * scale_ratio))
-        #     x2 = int(round(x2 * scale_ratio))
-        #     y2 = int(round(y2 * scale_ratio))
-        #     cv2.putText(img_det, f'{detect_violation_result}', (min(list([x1, x2])), max(list([y1, y2])) + 60),
-        #                 cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2, cv2.LINE_AA)
-
-        # 畫出 Car detection 的框框
-        # if len(det):
-        #     det[:, :4] = scale_coords(img.shape[2:], det[:, :4], img_det.shape).round()
-        #     for *xyxy, conf, cls in reversed(det):
-        #         label_det_pred = f'{names[int(cls)]} {conf:.2f}'
-        #         plot_one_box(xyxy, img_det, label=label_det_pred, color=colors[int(cls)], line_thickness=2)
+        if detect_violation_result:
+            x1, y1, x2, y2 = car_blinker_detection_target["bbox"]
+            x1 = int(round(x1 * scale_ratio))
+            y1 = int(round(y1 * scale_ratio))
+            x2 = int(round(x2 * scale_ratio))
+            y2 = int(round(y2 * scale_ratio))
+            cv2.putText(img_det, f'{detect_violation_result}', (min(list([x1, x2])), max(list([y1, y2])) + 60),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2, cv2.LINE_AA)
 
         if dataset.mode == 'images':
             cv2.imwrite(save_path, img_det)
@@ -283,7 +262,7 @@ def detect(cfg, opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='weights/End-to-end.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', nargs='+', type=str, default='/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/weights/End-to-end.pth', help='model.pth path(s)')
     parser.add_argument('--source', type=str, default='inference/videos', help='source')  # file/folder   ex:inference/images
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
@@ -292,6 +271,8 @@ if __name__ == '__main__':
     parser.add_argument('--save-dir', type=str, default='inference/output', help='directory to save results')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
+    parser.add_argument('--target_id', type=int, default=5, help='Target ID for annotation (default: 5)')
+
     opt = parser.parse_args()
     with torch.no_grad():
         detect(cfg, opt)

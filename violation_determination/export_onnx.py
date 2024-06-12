@@ -153,14 +153,14 @@ if __name__ == "__main__":
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model = MCnet(YOLOP)
-    checkpoint = torch.load('./weights/End-to-end.pth', map_location=device)
+    checkpoint = torch.load('../weights/End-to-end.pth', map_location=device)
     model.load_state_dict(checkpoint['state_dict'])
     model.eval()
 
     height = args.height
     width = args.width
     print("Load ./weights/End-to-end.pth done!")
-    onnx_path = f'weights/yolop-{height}-{width}.onnx'
+    onnx_path = f'../weights/yolop-{height}-{width}.onnx'
     inputs = torch.randn(1, 3, height, width)
 
     print(f"Converting to {onnx_path}")

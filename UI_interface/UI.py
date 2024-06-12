@@ -76,10 +76,10 @@ class VideoProcessingApp(wx.Frame):
     def process_video(self, event):
         print("Processing...")
         self.processing_label.SetLabel("Processing...")
-        target_id = self.target_id_text.GetValue()    # 获取目标ID
-        threading.Thread(target=self.run_second_script, args=(target_id,)).start()
+        target_id = self.target_id_text.GetValue()  # 获取目标ID
+        threading.Thread(target=self.run_script, args=(target_id,)).start()
 
-    def run_second_script(self, target_id):
+    def run_script(self, target_id):
         try:
             video_name = os.path.basename(self.file_path)  # 获取视频文件名
             print(video_name)
@@ -89,11 +89,36 @@ class VideoProcessingApp(wx.Frame):
 
             if process.returncode == 0:
                 result = stdout.decode('utf-8').strip()
-            #     wx.CallAfter(self.output_label.SetLabel, f"Program Output: {result}")
+                #     wx.CallAfter(self.output_label.SetLabel, f"Program Output: {result}")
+                self.run_second_script(target_id=target_id)
+            else:
+                error = stderr.decode('utf-8').strip()
+                print(error)
+                # wx.CallAfter(self.output_label.SetLabel, f"Error: {error}")
+        except Exception as e:
+            traceback.print_exc()
+            wx.CallAfter(self.output_label.SetLabel, f"Error: {str(e)}")
+
+    def run_second_script(self, target_id):
+        try:
+            video_name = os.path.basename(self.file_path)  # 获取视频文件名
+            print(video_name)
+            command = (f"python /Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection"
+                       f"/violation_determination/tools/demo.py"
+                       f" --source /Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/vehicle/data/output/{video_name[:-4]}_annotated.mp4 "
+                       f" --target_id {str(target_id)}")
+
+            process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = process.communicate()
+
+            if process.returncode == 0:
+                result = stdout.decode('utf-8').strip()
+                #     wx.CallAfter(self.output_label.SetLabel, f"Program Output: {result}")
                 self.show_result()
             else:
                 error = stderr.decode('utf-8').strip()
-                wx.CallAfter(self.output_label.SetLabel, f"Error: {error}")
+                print(error)
+                # wx.CallAfter(self.output_label.SetLabel, f"Error: {error}")
         except Exception as e:
             traceback.print_exc()
             wx.CallAfter(self.output_label.SetLabel, f"Error: {str(e)}")
@@ -104,20 +129,25 @@ class VideoProcessingApp(wx.Frame):
         # 获取视频名称
         video_name = os.path.basename(self.file_path)
         # 更新视频路径
-        output_video_path = f"/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/vehicle/data/output/{video_name[:-4]}_annotated.mp4"
+        output_video_path = f"/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/UI_interface/night_driving-10.mov"
+        # output_video_path = f"/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/UI_interface/inference/output/{video_name[:-4]}_annotated.mp4"
         # 显示更新后的视频
         self.display_video(output_video_path)
 
     def display_video(self, video_path):
         cap = cv2.VideoCapture(video_path)
-        frame = cap.read()[1]
-        height, width, _ = frame.shape
+        cap.set(cv2.CAP_PROP_FPS, 15)  # 設置視頻的播放速度為每秒15幀
+
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
         wx.CallAfter(self.create_and_show_video_frame, cap, width, height)
 
     def create_and_show_video_frame(self, cap, width, height):
         new_frame = VideoFrame(cap, width, height)
         new_frame.Show()
+
+
 class VideoPanel(wx.Panel):
     def __init__(self, parent, width, height):
         super().__init__(parent)
@@ -137,6 +167,7 @@ class VideoPanel(wx.Panel):
     def update_frame(self, frame):
         self.frame = frame
         self.Refresh()  # Refresh panel to trigger repaint
+
 
 class VideoFrame(wx.Frame):
     def __init__(self, cap, width, height):
@@ -174,6 +205,7 @@ class VideoFrame(wx.Frame):
             self.play_button.SetLabel("Replay")
             self.playing = False
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
 
 if __name__ == "__main__":
     app = wx.App()

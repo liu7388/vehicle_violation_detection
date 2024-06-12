@@ -19,7 +19,7 @@ def yolop(pretrained=True, device="cpu"):
     device = select_device(device = device)
     model = get_net(cfg)
     if pretrained:
-        path = os.path.join(Path(__file__).resolve().parent, "weights/End-to-end.pth")
+        path = os.path.join(Path(__file__).resolve().parent, "../weights/End-to-end.pth")
         checkpoint = torch.load(path, map_location= device)
         model.load_state_dict(checkpoint['state_dict'])
     model = model.to(device)

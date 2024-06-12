@@ -57,15 +57,36 @@ class ImageProcessor:
         return lower_threshold <= mean_diff <= higher_threshold
 
     @staticmethod
-    def draw_dividing_lines(image):
+    def draw_dividing_lines(image, prev_image=None, factor=1.5, min_diff_threshold=30, dynamic_adjustment=True):
         height, width, _ = image.shape
+
+        # 調用detect_highlight方法來獲取高光區域的位置
+        highlight_position = ImageProcessor.detect_highlight(image, prev_image, factor, min_diff_threshold,
+                                                             dynamic_adjustment)
+
+        # 定義左右區域的矩形
         left_rect = (0, 2 * height // 7, 2 * width // 8, 3 * height // 8)
         right_rect = (5 * width // 8, 2 * height // 7, width, 3 * height // 8)
+
+        # 根據高光位置，決定要填充的矩形顏色
+        if highlight_position == "left":
+            left_color = (0, 0, 255)  # 紅色表示左側為高光
+            right_color = (0, 255, 0)  # 綠色表示右側正常
+        elif highlight_position == "right":
+            left_color = (0, 255, 0)  # 綠色表示左側正常
+            right_color = (0, 0, 255)  # 紅色表示右側為高光
+        else:
+            left_color = right_color = (0, 255, 0)  # 綠色表示兩側都正常
+
+        # 複製原始圖像
         image_with_rect = image.copy()
+
+        # 繪製左右矩形
         cv2.rectangle(image_with_rect, (left_rect[0], left_rect[1]),
-                      (left_rect[0] + left_rect[2], left_rect[1] + left_rect[3]), (0, 255, 0), 2)
+                      (left_rect[0] + left_rect[2], left_rect[1] + left_rect[3]), left_color, 2)
         cv2.rectangle(image_with_rect, (right_rect[0], right_rect[1]),
-                      (right_rect[0] + right_rect[2], right_rect[1] + right_rect[3]), (0, 255, 0), 2)
+                      (right_rect[0] + right_rect[2], right_rect[1] + right_rect[3]), right_color, 2)
+
         return image_with_rect
 
     @staticmethod
@@ -137,6 +158,8 @@ class ImageProcessor:
             leftOrRight = self.detect_highlight(image, prev_image, min_diff_threshold=30)
             leftRight.append({"file_name": os.path.basename(img_file), "left_or_right": leftOrRight})
             prev_image = image
+            # cv2.imshow("img", self.draw_dividing_lines(image))
+            # cv2.waitKey(0)
 
         remaining_files = set(os.path.basename(f) for f in self.image_files)
         for original_file in self.original_image_files:
@@ -166,6 +189,6 @@ class ImageProcessor:
 
 
 if __name__ == "__main__":
-    folder_path = './data/output_deepsort/night_driving-2/5'
+    folder_path = './data/output_deepsort/night_driving-10/4'
     processor = ImageProcessor(folder_path)
     processor.run()
