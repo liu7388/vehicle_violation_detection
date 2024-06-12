@@ -14,11 +14,11 @@ tracker = Sort()
 model = torch.hub.load('ultralytics/yolov5', 'yolov5m', pretrained=True)
 model.to(device)
 
-video_name = '20230309_073056.MOV'
+video_name = 'night_driving-9.MOV'
 # video_name = 'blinkers-2-1.MOV'
 
 # 設定影片來源，0表示從攝像頭讀取，可以替換為影片文件路徑
-video_path = './data/videos/' + video_name
+video_path = '/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/YOLOv8-DeepSORT-Object-Tracking/ultralytics/yolo/v8/detect/videos/' + video_name
 # video_path = 0
 cap = cv2.VideoCapture(video_path)
 
@@ -27,14 +27,25 @@ if not cap.isOpened():
     print("錯誤：無法打開影片。")
     exit()
 
+# 創建存儲文件夾的基礎路徑
+output_base_dir = "./data/output/" + video_name
+
+# 設定輸出影片參數
+output_video_path = output_base_dir + '/' + video_name +'.mp4'
+print(output_video_path)
+
+
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
+fps = cap.get(cv2.CAP_PROP_FPS)
+frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+out = cv2.VideoWriter(output_video_path, fourcc, fps, (frame_width * 2, frame_height))  # *2 for the concatenated frames
+
 # 設定閥值
 confidence_threshold = 0.4
 
 # 定義類別名稱（依據YOLOv5預訓練模型的類別）
 class_names = model.names
-
-# 創建存儲文件夾的基礎路徑
-output_base_dir = "./data/output/" + video_name
 
 # 創建基礎文件夾
 if not os.path.exists(output_base_dir):
@@ -129,6 +140,9 @@ while cap.isOpened():
     # 合併顯示原始YOLO結果與過濾後的結果
     combined_frame = cv2.hconcat([original_results_img, annotated_frame])
 
+    # 保存當前幀到輸出視頻文件
+    out.write(combined_frame)
+
     # 顯示結果圖像
     cv2.imshow('YOLOv5 Vehicle Detection', combined_frame)
 
@@ -140,4 +154,5 @@ while cap.isOpened():
 
 # 釋放資源並關閉視窗
 cap.release()
+out.release()  # 釋放視頻寫入器
 cv2.destroyAllWindows()
