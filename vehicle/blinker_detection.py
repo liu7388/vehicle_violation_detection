@@ -7,6 +7,15 @@ from skimage.metrics import structural_similarity as ssim
 
 class ImageProcessor:
     def __init__(self, folder_path, interval=5, resize_dim=(256, 256)):
+        """
+        Initialize an ImageProcessor object with parameters for image processing.
+
+        Args:
+            folder_path (str): Path to the folder containing images.
+            interval (int): Interval between images to process.
+            resize_dim (tuple): Dimensions to resize images to (width, height).
+
+        """
         self.folder_path = folder_path
         self.interval = interval
         self.resize_dim = resize_dim
@@ -14,6 +23,16 @@ class ImageProcessor:
         self.original_image_files = self.load_images_from_folder(interval=1)
 
     def load_images_from_folder(self, interval):
+        """
+        Load image files from the specified folder with a given interval.
+
+        Args:
+            interval (int): Interval between images to load.
+
+        Returns:
+            list: List of file paths to the loaded images.
+
+        """
         filenames = []
         file_list = [(os.path.join(self.folder_path, f), os.path.getmtime(os.path.join(self.folder_path, f))) for f in
                      os.listdir(self.folder_path) if f.endswith((".jpg", ".jpeg", ".png"))]
@@ -22,6 +41,16 @@ class ImageProcessor:
         return filenames[::interval]
 
     def read_and_resize_image(self, filepath):
+        """
+        Read an image from file and resize it.
+
+        Args:
+            filepath (str): Path to the image file.
+
+        Returns:
+            numpy.ndarray: Resized image array.
+
+        """
         image = cv2.imread(filepath)
         if image is not None:
             image = cv2.resize(image, self.resize_dim)
@@ -29,6 +58,18 @@ class ImageProcessor:
 
     @staticmethod
     def compare_images(img1, img2, threshold=0.3):
+        """
+        Compare two images using Structural Similarity Index (SSIM).
+
+        Args:
+            img1 (numpy.ndarray): First image array.
+            img2 (numpy.ndarray): Second image array.
+            threshold (float): Threshold value for SSIM score.
+
+        Returns:
+            bool: True if images are similar based on SSIM, False otherwise.
+
+        """
         gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
         gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
         score, _ = ssim(gray1, gray2, full=True)
@@ -36,6 +77,17 @@ class ImageProcessor:
 
     @staticmethod
     def calculate_dynamic_threshold(images, factor=0.5):
+        """
+        Calculate dynamic thresholds based on brightness differences between consecutive images.
+
+        Args:
+            images (list): List of image arrays.
+            factor (float): Factor to adjust the threshold calculation.
+
+        Returns:
+            tuple: Lower and higher threshold values.
+
+        """
         brightness_diffs = []
         for i in range(len(images) - 1):
             img1 = cv2.cvtColor(images[i], cv2.COLOR_BGR2GRAY)
@@ -49,6 +101,17 @@ class ImageProcessor:
         return lower_threshold, higher_threshold
 
     def compare_images_bright(self, img1, img2):
+        """
+        Compare brightness differences between two images using dynamic thresholds.
+
+        Args:
+            img1 (numpy.ndarray): First image array.
+            img2 (numpy.ndarray): Second image array.
+
+        Returns:
+            bool: True if brightness difference falls within calculated thresholds, False otherwise.
+
+        """
         lower_threshold, higher_threshold = self.calculate_dynamic_threshold([img1, img2])
         gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
         gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
@@ -58,30 +121,39 @@ class ImageProcessor:
 
     @staticmethod
     def draw_dividing_lines(image, prev_image=None, factor=1.5, min_diff_threshold=30, dynamic_adjustment=True):
+        """
+        Draw dividing lines on the image based on brightness differences to detect highlights.
+
+        Args:
+            image (numpy.ndarray): Image array to draw lines on.
+            prev_image (numpy.ndarray): Previous image array for comparison.
+            factor (float): Factor for adjusting thresholds.
+            min_diff_threshold (int): Minimum threshold for detecting differences.
+            dynamic_adjustment (bool): Flag for dynamic adjustment of thresholds.
+
+        Returns:
+            numpy.ndarray: Image with drawn dividing lines.
+
+        """
         height, width, _ = image.shape
 
-        # 調用detect_highlight方法來獲取高光區域的位置
         highlight_position = ImageProcessor.detect_highlight(image, prev_image, factor, min_diff_threshold,
                                                              dynamic_adjustment)
 
-        # 定義左右區域的矩形
         left_rect = (0, 2 * height // 7, 2 * width // 8, 3 * height // 8)
         right_rect = (5 * width // 8, 2 * height // 7, width, 3 * height // 8)
 
-        # 根據高光位置，決定要填充的矩形顏色
         if highlight_position == "left":
-            left_color = (0, 0, 255)  # 紅色表示左側為高光
-            right_color = (0, 255, 0)  # 綠色表示右側正常
+            left_color = (0, 0, 255)  # Red for left highlight
+            right_color = (0, 255, 0)  # Green for right normal
         elif highlight_position == "right":
-            left_color = (0, 255, 0)  # 綠色表示左側正常
-            right_color = (0, 0, 255)  # 紅色表示右側為高光
+            left_color = (0, 255, 0)  # Green for left normal
+            right_color = (0, 0, 255)  # Red for right highlight
         else:
-            left_color = right_color = (0, 255, 0)  # 綠色表示兩側都正常
+            left_color = right_color = (0, 255, 0)  # Green for both normal
 
-        # 複製原始圖像
         image_with_rect = image.copy()
 
-        # 繪製左右矩形
         cv2.rectangle(image_with_rect, (left_rect[0], left_rect[1]),
                       (left_rect[0] + left_rect[2], left_rect[1] + left_rect[3]), left_color, 2)
         cv2.rectangle(image_with_rect, (right_rect[0], right_rect[1]),
@@ -91,6 +163,20 @@ class ImageProcessor:
 
     @staticmethod
     def detect_highlight(image, prev_image=None, factor=1.5, min_diff_threshold=30, dynamic_adjustment=True):
+        """
+        Detect highlights in specific regions of the image based on brightness and differences.
+
+        Args:
+            image (numpy.ndarray): Image array to detect highlights in.
+            prev_image (numpy.ndarray): Previous image array for comparison.
+            factor (float): Factor for adjusting thresholds.
+            min_diff_threshold (int): Minimum threshold for detecting differences.
+            dynamic_adjustment (bool): Flag for dynamic adjustment of thresholds.
+
+        Returns:
+            str: "left" if left side is highlighted, "right" if right side is highlighted, None if no highlight.
+
+        """
         height, width, _ = image.shape
         left_region = image[int(0.25 * height):int(0.5 * height), :int(0.2 * width)]
         right_region = image[int(0.25 * height):int(0.5 * height), int(0.8 * width):]
@@ -112,10 +198,7 @@ class ImageProcessor:
         brightness_threshold = factor * np.std([left_brightness, right_brightness])
         diff_threshold = factor * np.std([left_diff, right_diff])
 
-        print(abs(left_diff), abs(right_diff))
-
         if abs(left_diff) < min_diff_threshold and abs(right_diff) < min_diff_threshold:
-            print('None')
             return None
         elif left_brightness > right_brightness and left_diff > diff_threshold:
             if dynamic_adjustment:
@@ -129,6 +212,13 @@ class ImageProcessor:
             return None
 
     def process_images(self):
+        """
+        Process the loaded images to filter out non-consecutive frames based on brightness differences.
+
+        Returns:
+            list: List of filtered image file paths.
+
+        """
         indices_to_remove = []
         for i in range(len(self.image_files) - 1):
             img1 = self.read_and_resize_image(self.image_files[i])
@@ -142,9 +232,17 @@ class ImageProcessor:
         return self.image_files
 
     def save_processed_images(self, image_files):
-        destination_folder = '/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/vehicle/data/output_blinker' + os.path.basename(self.folder_path) + '/'
+        """
+        Save processed images to a destination folder and create JSON file with highlight detection results.
+
+        Args:
+            image_files (list): List of image file paths to save.
+
+        """
+        destination_folder = './output/'
         if not os.path.exists(destination_folder):
             os.makedirs(destination_folder)
+
         for img_file in self.image_files:
             shutil.copy(img_file, destination_folder)
 
@@ -158,13 +256,11 @@ class ImageProcessor:
             leftOrRight = self.detect_highlight(image, prev_image, min_diff_threshold=30)
             leftRight.append({"file_name": os.path.basename(img_file), "left_or_right": leftOrRight})
             prev_image = image
-            # cv2.imshow("img", self.draw_dividing_lines(image))
-            # cv2.waitKey(0)
 
         remaining_files = set(os.path.basename(f) for f in self.image_files)
         for original_file in self.original_image_files:
             original_file_name = os.path.basename(original_file)
-            if original_file_name not in remaining_files
+            if original_file_name not in remaining_files:
                 leftRight.append({
                     "file_name": original_file_name,
                     "left_or_right": None
@@ -184,6 +280,9 @@ class ImageProcessor:
             json.dump(leftRight, f, indent=4)
 
     def run(self):
+        """
+        Execute the image processing pipeline: filtering images and saving results.
+        """
         self.image_files = self.process_images()
         self.save_processed_images(image_files=self.image_files)
 

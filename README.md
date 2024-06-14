@@ -1,10 +1,16 @@
 # vehicle_violation_detection
 
-For most of the following files, you just need to click the run button to execute them. 
-If any command needs to be entered manually, I will indicate it.
+This project includes dependencies from two GitHub repositories, namely "[YOLOv8-DeepSORT-Object-Tracking](https://github.com/MuhammadMoinFaisal/YOLOv8-DeepSORT-Object-Tracking?tab=readme-ov-file)" and "[YOLOP](https://github.com/hustvl/YOLOP)".
+To run this project, simply execute UI.py.
+
+## Demo Video
+[YouTube Link](https://youtu.be/dZBRhVpLv-w)
+
+![messageImage_1718212338461.jpg](..%2F%E7%9B%B8%E9%97%9C%E6%96%87%E6%9B%B8%2FUI_Demo%2FmessageImage_1718212338461.jpg)
+
+## Files introduction
 
 - ### UI Interface:
-  Run this file and it will complete all the operations automatically.
   + ./UI_interface/UI.py
 
 - ### Vehicle Detection:

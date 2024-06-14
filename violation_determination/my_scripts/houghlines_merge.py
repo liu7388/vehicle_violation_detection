@@ -10,7 +10,25 @@ grouped_lines = {}
 previous_grouped_lines = {}
 
 def houghlines_merge(gray):
+    """
+    Detects and merges Hough lines with similar angles from a grayscale image.
+
+    Args:
+        gray (numpy.ndarray): Grayscale image containing lane markings.
+
+    Returns:
+        list: List of merged lane lines represented as endpoints [[x1, y1, x2, y2]].
+    """
     def lines_filter(lines):
+        """
+        Filters lines based on their angle and groups them by similar angles.
+
+        Args:
+            lines (numpy.ndarray): Array of detected lines from Hough transform.
+
+        Returns:
+            dict: Dictionary containing filtered lines grouped by similar angles.
+        """
         global theda_history
         global grouped_lines
         global previous_grouped_lines
@@ -21,10 +39,12 @@ def houghlines_merge(gray):
         for line in lines:
             x1, y1, x2, y2 = line[0]
             if x2 - x1 != 0:
-                # 將角度相似的線分組
+                # Group lines with similar angles
                 theda_interval = 3
-                if y2 - y1 >= 0: theda = 90 - degrees(acos((x2 - x1) / sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)))
-                else: theda = (-1) * (90 - degrees(acos((x2 - x1) / sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2))))
+                if y2 - y1 >= 0:
+                    theda = 90 - degrees(acos((x2 - x1) / sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)))
+                else:
+                    theda = (-1) * (90 - degrees(acos((x2 - x1) / sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2))))
                 q, r = divmod(theda, theda_interval)
                 adjusted_theda = int(q * theda_interval + round(r * (1 / theda_interval)) * theda_interval)
                 if -80 <= theda <= 80:
@@ -57,17 +77,16 @@ def houghlines_merge(gray):
                 del grouped_lines[theda]
                 theda_history[theda] += theda_weight_increase_step
 
-        # print(f"\n\nAlive lines theda: {grouped_lines.keys()}")
         print(f"\n\nHistory lines' weight: {theda_history}")
 
-        # 找每個角度中最長的線
+        # Find the longest line for each angle
         for theda, group in grouped_lines.items():
             max_length = 0
             best_line = None
 
             for line in group:
                 x1, y1, x2, y2 = line[0]
-                length = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)  # 计算线段长度
+                length = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
                 if length > max_length:
                     max_length = length
@@ -78,36 +97,36 @@ def houghlines_merge(gray):
 
         return best_lines
 
-    # 霍夫直線偵測
+    # Hough line detection
     threshold = 140
     lines = cv2.HoughLinesP(gray, 1, np.pi/360, threshold=threshold, minLineLength=80, maxLineGap=50)
 
-    # 過濾偵測出來的線（），回傳一個 dictionary
+    # Filter detected lines and return as a dictionary
     best_lines_dictionary = lines_filter(lines)
 
-    # 合併相似角度的線，回傳得到一個 list [ [[x1, y1, x2, y2]], [[x1, y1, x2, y2]], ... ]
+    # Merge lines with similar angles and return as a list [[x1, y1, x2, y2]]
     best_lines_merged_list = merge_similar_lane_detections(best_lines_dictionary)
 
     return best_lines_merged_list
 
 
 if __name__ == "__main__":
-    # 讀取圖片
+    # Read the image
     image_path = str(Path(os.path.abspath(__file__)).parents[1]) + '/lanes_mask.png'
     image = cv2.imread(image_path)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    # edges = cv2.Canny(gray, 50, 150, apertureSize=3)
 
-    # 設定kernel
+    # Set kernel for morphological operations
     kernel = np.ones((5, 5), np.uint8)
-    # 膨脹
+    # Dilate the image
     gray = cv2.dilate(gray, kernel, iterations=1)
-    # 侵蝕
+    # Erode the image
     gray = cv2.erode(gray, kernel, iterations=2)
 
+    # Obtain merged Hough lines
     merged_lines = houghlines_merge(gray)
 
-    # 畫出直線
+    # Draw the lines on the image
     if merged_lines is not None:
         for line in merged_lines:
             x1, y1, x2, y2 = line[0]
@@ -119,4 +138,3 @@ if __name__ == "__main__":
     cv2.imwrite('houghlines_merge.png', image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-

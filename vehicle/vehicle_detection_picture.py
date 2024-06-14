@@ -1,16 +1,29 @@
 import torch
 import cv2
 
-
-# 載入YOLOv5模型
+# Load YOLOv5 model
 model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
 
-# 讀取圖像
-img = cv2.imread('data/image.jpg')
+def inference_and_save_results(image_path):
+    """
+    Loads a YOLOv5 model, performs inference on the given image, prints the results, and saves the annotated image.
 
-# 進行推論
-results = model(img)
+    Args:
+        image_path (str): Path to the input image file.
 
-# 取得辨識結果
-results.print()  # 印出結果
-results.save()   # 保存包含框架和標籤的圖像
+    """
+    # Read image
+    img = cv2.imread(image_path)
+
+    # Perform inference
+    results = model(img)
+
+    # Print detection results
+    results.print()
+
+    # Save annotated image with bounding boxes and labels
+    results.save()
+
+# Example usage
+image_path = 'data/image.jpg'
+inference_and_save_results(image_path)

@@ -8,7 +8,14 @@ import wx
 
 
 class VideoProcessingApp(wx.Frame):
+    """
+    A GUI application for Vehicle Violation Detection using wxPython.
+    """
+
     def __init__(self):
+        """
+        Initialize the application window and components.
+        """
         super().__init__(parent=None, title="Vehicle Violation Detection", size=(800, 600))
         panel = wx.Panel(self)
         panel.SetBackgroundColour('#003060')
@@ -65,6 +72,9 @@ class VideoProcessingApp(wx.Frame):
         panel.SetSizer(main_sizer)
 
     def upload_video(self, event):
+        """
+        Opens a file dialog to upload a video file.
+        """
         with wx.FileDialog(self, "Choose a file", wildcard="Video Files (*.mp4;*.avi;*.mov)|*.mp4;*.avi;*.mov",
                            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as file_dialog:
             if file_dialog.ShowModal() == wx.ID_CANCEL:
@@ -74,16 +84,20 @@ class VideoProcessingApp(wx.Frame):
             self.process_button.Enable()
 
     def process_video(self, event):
+        """
+        Initiates video processing by starting a separate thread.
+        """
         print("Processing...")
         self.processing_label.SetLabel("Processing...")
         target_id = self.target_id_text.GetValue()
         threading.Thread(target=self.run_script, args=(target_id,)).start()
 
-
-
     def run_script(self, target_id):
+        """
+        Runs the prediction script with subprocess to process the uploaded video.
+        """
         try:
-            video_name = os.path.basename(self.file_path)  # 获取视频文件名
+            video_name = os.path.basename(self.file_path)
             print(video_name)
             command = f"python {self.second_script_path} --video_name {video_name} --target_id {str(target_id)}"
             process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -91,23 +105,23 @@ class VideoProcessingApp(wx.Frame):
 
             if process.returncode == 0:
                 result = stdout.decode('utf-8').strip()
-                #     wx.CallAfter(self.output_label.SetLabel, f"Program Output: {result}")
                 self.run_second_script(target_id=target_id)
             else:
                 error = stderr.decode('utf-8').strip()
                 print(error)
-                # wx.CallAfter(self.output_label.SetLabel, f"Error: {error}")
         except Exception as e:
             traceback.print_exc()
             wx.CallAfter(self.output_label.SetLabel, f"Error: {str(e)}")
 
     def run_second_script(self, target_id):
+        """
+        Runs the second script to display the annotated video after processing.
+        """
         try:
-            video_name = os.path.basename(self.file_path)  # 获取视频文件名
+            video_name = os.path.basename(self.file_path)
             print(video_name)
-            command = (f"python /Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection"
-                       f"/violation_determination/tools/demo.py"
-                       f" --source /Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/vehicle/data/output/{video_name[:-4]}_annotated.mp4 "
+            command = (f"python ../violation_determination/tools/demo.py"
+                       f" --source ../vehicle/data/output/{video_name[:-4]}_annotated.mp4 "
                        f" --target_id {str(target_id)}")
 
             process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -115,29 +129,31 @@ class VideoProcessingApp(wx.Frame):
 
             if process.returncode == 0:
                 result = stdout.decode('utf-8').strip()
-                #     wx.CallAfter(self.output_label.SetLabel, f"Program Output: {result}")
                 self.show_result()
             else:
                 error = stderr.decode('utf-8').strip()
                 print(error)
-                # wx.CallAfter(self.output_label.SetLabel, f"Error: {error}")
         except Exception as e:
             traceback.print_exc()
             wx.CallAfter(self.output_label.SetLabel, f"Error: {str(e)}")
 
     def show_result(self):
-        wx.CallAfter(self.processing_label.SetLabel, "Completed")  # 隐藏 "Processing..." 标签
+        """
+        Shows a message box indicating that video processing is completed.
+        """
+        wx.CallAfter(self.processing_label.SetLabel, "Completed")
         wx.MessageBox("Processing finished! Result will be shown here.", "Result", wx.OK | wx.ICON_INFORMATION)
-        # 获取视频名称
+
         video_name = os.path.basename(self.file_path)
-        # 更新视频路径
-        output_video_path = f"/Users/ting/MEGA/作業/112-2/機器視覺/期末專題/vehicle_violation_detection/UI_interface/inference/output/{video_name[:-4]}_annotated.mp4"
-        # 显示更新后的视频
+        output_video_path = f"./inference/output/{video_name[:-4]}_annotated.mp4"
         self.display_video(output_video_path)
 
     def display_video(self, video_path):
+        """
+        Displays the annotated video in a new window.
+        """
         cap = cv2.VideoCapture(video_path)
-        cap.set(cv2.CAP_PROP_FPS, 15)  # 設置視頻的播放速度為每秒15幀
+        cap.set(cv2.CAP_PROP_FPS, 15)
 
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -145,18 +161,31 @@ class VideoProcessingApp(wx.Frame):
         wx.CallAfter(self.create_and_show_video_frame, cap, width, height)
 
     def create_and_show_video_frame(self, cap, width, height):
+        """
+        Creates and shows a video frame using wxPython.
+        """
         new_frame = VideoFrame(cap, width, height)
         new_frame.Show()
 
 
 class VideoPanel(wx.Panel):
+    """
+    Panel for displaying video frames using wxPython.
+    """
+
     def __init__(self, parent, width, height):
+        """
+        Initialize the panel with specified dimensions.
+        """
         super().__init__(parent)
         self.SetInitialSize((width, height))
         self.Bind(wx.EVT_PAINT, self.on_paint)
         self.frame = None
 
     def on_paint(self, event):
+        """
+        Paint event handler to draw the video frame on the panel.
+        """
         dc = wx.BufferedPaintDC(self)
         if self.frame is not None:
             h, w = self.frame.shape[:2]
@@ -166,12 +195,22 @@ class VideoPanel(wx.Panel):
             dc.DrawBitmap(bitmap, 0, 0)
 
     def update_frame(self, frame):
+        """
+        Updates the current frame to be displayed.
+        """
         self.frame = frame
-        self.Refresh()  # Refresh panel to trigger repaint
+        self.Refresh()
 
 
 class VideoFrame(wx.Frame):
+    """
+    Frame for displaying the video using wxPython.
+    """
+
     def __init__(self, cap, width, height):
+        """
+        Initialize the frame with the video capture and dimensions.
+        """
         super().__init__(None, title="Video Player")
         self.panel = VideoPanel(self, width, height)
         self.playing = False
@@ -192,15 +231,21 @@ class VideoFrame(wx.Frame):
         self.frame = None
 
     def on_play(self, event):
+        """
+        Plays or pauses the video based on current state.
+        """
         if not self.playing:
             self.play_button.SetLabel("Pause")
             self.playing = True
-            self.timer.Start(30)  # Set timer to trigger events every 30 milliseconds
+            self.timer.Start(30)
 
     def on_timer(self, event):
+        """
+        Timer event to update the video frame display.
+        """
         ret, self.frame = self.cap.read()
         if ret:
-            self.panel.update_frame(self.frame)  # Pass frame to panel for display
+            self.panel.update_frame(self.frame)
         else:
             self.timer.Stop()
             self.play_button.SetLabel("Replay")
