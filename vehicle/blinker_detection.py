@@ -164,7 +164,7 @@ class ImageProcessor:
         remaining_files = set(os.path.basename(f) for f in self.image_files)
         for original_file in self.original_image_files:
             original_file_name = os.path.basename(original_file)
-            if original_file_name not in remaining_files:
+            if original_file_name not in remaining_files
                 leftRight.append({
                     "file_name": original_file_name,
                     "left_or_right": None
